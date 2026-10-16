@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#082820">
+<title>Coin Duel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --felt: #0f3d33;
+    --felt-deep: #082820;
+    --chalk: #f4f1e8;
+    --brass: #e0b030;
+    --brass-dark: #8a6a12;
+    --flag: #ff7a5c;
+    --muted: #8fb0a5;
+    --panel: rgba(255,255,255,.06);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: radial-gradient(ellipse at 50% 35%, #15594a 0%, var(--felt) 38%, var(--felt-deep) 100%) fixed;
+    color: var(--chalk);
+    font-family: "Bricolage Grotesque", system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex; justify-content: center;
+    padding: 20px 16px 28px;
+  }
+  main { width: 100%; max-width: 460px; display: flex; flex-direction: column; }
+  .hidden { display: none !important; }
+
+  /* ---------- Buttons & inputs ---------- */
+  button {
+    font: inherit; font-weight: 700; font-size: 17px; cursor: pointer;
+    padding: 14px 18px; border-radius: 12px; border: 0; width: 100%;
+    transition: transform .12s, background .2s, opacity .2s;
+  }
+  button:active:not(:disabled) { transform: scale(.97); }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--chalk); outline-offset: 3px; }
+  .primary { background: var(--brass); color: #2a2006; }
+  .primary:disabled { opacity: .4; cursor: not-allowed; }
+  .ghost { background: transparent; color: var(--chalk); border: 2px solid var(--muted); }
+  input {
+    width: 100%; padding: 13px 14px; font: inherit; font-size: 18px;
+    background: rgba(0,0,0,.18); color: var(--chalk);
+    border: 2px solid rgba(255,255,255,.18); border-radius: 12px;
+  }
+  input::placeholder { color: rgba(244,241,232,.35); }
+  input:focus { border-color: var(--brass); }
+  label { display: block; font-size: 14px; color: var(--muted); margin-bottom: 6px; }
+  .error { color: var(--flag); min-height: 22px; margin-top: 12px; text-align: center; }
+
+  /* ---------- The coin (shared by home + room) ---------- */
+  .coin3d {
+    width: var(--size); height: var(--size);
+    position: relative; transform-style: preserve-3d;
+  }
+  .coin3d .face, .coin3d .edge { position: absolute; inset: 0; border-radius: 50%; }
+  .coin3d .edge { background: linear-gradient(90deg, #8a6a12, #d6a822 50%, #8a6a12); }
+  .coin3d .face {
+    backface-visibility: hidden;
+    display: grid; place-items: center; color: #3a2a04;
+    background: radial-gradient(circle at 34% 28%, #f8e08a 0%, var(--brass) 52%, #a97f14 100%);
+    border: calc(var(--size) * .045) solid #b98f1e;
+    box-shadow: inset 0 0 0 calc(var(--size) * .03) rgba(255,255,255,.16),
+                inset 0 -8px 16px rgba(90,60,0,.35);
+  }
+  .coin3d .heads { transform: translateZ(7px); }
+  .coin3d .tails { transform: rotateX(180deg) translateZ(7px); }
+  .coin3d.spinY .tails { transform: rotateY(180deg) translateZ(7px); }
+  .mark { text-align: center; line-height: 1; }
+  .mark b { display: block; font-size: calc(var(--size) * .36); font-weight: 800; }
+  .mark small { font-size: calc(var(--size) * .1); font-weight: 700; letter-spacing: .05em; }
+
+  /* ---------- Home ---------- */
+  .homeStage { --size: 104px; height: 150px; display: grid; place-items: center; perspective: 600px; margin-top: 8px; }
+  #homeCoin { animation: spinY 5s linear infinite; }
+  @keyframes spinY { to { transform: rotateY(360deg); } }
+  h1 { font-size: 46px; font-weight: 800; letter-spacing: -0.02em; margin: 6px 0 6px; text-align: center; }
+  .sub { color: var(--muted); margin: 0 0 24px; text-align: center; }
+  .options { margin-top: 16px; display: grid; gap: 12px; }
+  .opt { background: var(--panel); border: 1px solid rgba(255,255,255,.12); border-radius: 18px; padding: 16px; }
+  .opt h2 { margin: 0 0 4px; font-size: 20px; font-weight: 800; }
+  .opt p { margin: 0 0 12px; color: var(--muted); font-size: 15px; }
+  .opt input + button { margin-top: 10px; }
+  #codeInput { text-transform: uppercase; letter-spacing: .35em; text-align: center; font-weight: 800; font-size: 22px; }
+
+  /* ---------- Room ---------- */
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .topbar .btns { display: flex; gap: 8px; }
+  .code { line-height: 1; }
+  .code span { color: var(--muted); font-size: 14px; }
+  .code b { display: block; font-size: 26px; letter-spacing: .18em; margin-top: 4px; }
+  .topbar button { width: auto; padding: 10px 14px; font-size: 15px; }
+
+  .board { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+  .pcard {
+    background: var(--panel); border: 2px solid rgba(255,255,255,.08);
+    border-radius: 18px; padding: 12px 10px; text-align: center;
+    transition: border-color .3s, background .3s, transform .3s;
+  }
+  .pcard.win { border-color: var(--brass); background: rgba(224,176,48,.15); transform: scale(1.03); }
+  .pcard.empty { opacity: .55; border-style: dashed; }
+  .pcard .nm { font-weight: 800; font-size: 18px; overflow-wrap: anywhere; }
+  .pcard .side { color: var(--muted); font-size: 14px; min-height: 20px; }
+  .pcard .score { font-size: 46px; font-weight: 800; line-height: 1.05; margin-top: 4px; }
+  .pcard .lbl { color: var(--muted); font-size: 13px; min-height: 18px; }
+  .vsbadge {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--felt-deep); border: 2px solid rgba(255,255,255,.14);
+    color: var(--muted); font-size: 13px; font-weight: 800;
+  }
+
+  .stage {
+    --size: 140px;
+    position: relative; height: 370px;
+    display: flex; justify-content: center; align-items: flex-end;
+  }
+  .stage::before {
+    content: ""; position: absolute; left: 5%; right: 5%; bottom: 6px; height: 90px;
+    background: radial-gradient(ellipse at center, rgba(255,255,255,.12), transparent 70%);
+  }
+  .tosser { margin-bottom: 56px; perspective: 650px; position: relative; z-index: 2; }
+  .tosser.idle { animation: bob 2.6s ease-in-out infinite; }
+  @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  .shadowWrap { position: absolute; left: 50%; bottom: 34px; width: var(--size); margin-left: calc(var(--size) / -2); z-index: 1; }
+  .shadow { height: 22px; border-radius: 50%; background: rgba(0,0,0,.55); filter: blur(7px); opacity: .55; }
+
+  .banner { text-align: center; min-height: 70px; margin-bottom: 10px; }
+  .banner .big { font-size: 30px; font-weight: 800; line-height: 1.15; }
+  .banner .small { color: var(--muted); margin-top: 4px; }
+
+  @media (max-height: 720px) { .stage { height: 300px; } }
+  @media (prefers-reduced-motion: reduce) {
+    #homeCoin, .tosser.idle { animation: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <!-- ===== Home ===== -->
+  <section id="home">
+    <div class="homeStage"><div id="homeCoin" class="spinY" style="--size:104px"></div></div>
+    <h1>Coin Duel</h1>
+    <p class="sub">Two players, one coin, the same flip on both screens.</p>
+
+    <div>
+      <label for="nameInput">Your name</label>
+      <input id="nameInput" maxlength="16" autocomplete="off" placeholder="e.g. Unicorn">
+    </div>
+
+    <div class="options">
+      <div class="opt">
+        <h2>Start a duel</h2>
+        <p>Get a room code and send it to a friend.</p>
+        <button id="createBtn" class="primary">Create room</button>
+      </div>
+      <div class="opt">
+        <h2>Got a code?</h2>
+        <p>Enter the 4 characters your friend sent you.</p>
+        <input id="codeInput" maxlength="4" autocomplete="off" aria-label="Room code" placeholder="K7P2">
+        <button id="joinBtn" class="ghost">Join room</button>
+      </div>
+    </div>
+    <div id="homeError" class="error" role="alert"></div>
+  </section>
+
+  <!-- ===== Room ===== -->
+  <section id="room" class="hidden">
+    <div class="topbar">
+      <div class="code"><span>Room code</span><b id="roomCode">----</b></div>
+      <div class="btns"><button id="copyBtn" class="primary">Copy code</button><button id="inviteBtn" class="ghost">Share link</button></div>
+    </div>
+
+    <div class="board">
+      <div class="pcard" id="p1"><div class="nm"></div><div class="side"></div><div class="score">0</div><div class="lbl"></div></div>
+      <div class="vsbadge">vs</div>
+      <div class="pcard" id="p2"><div class="nm"></div><div class="side"></div><div class="score">0</div><div class="lbl"></div></div>
+    </div>
+
+    <div class="stage" id="stage">
+      <div class="shadowWrap"><div class="shadow" id="shadow"></div></div>
+      <div class="tosser idle" id="tosser">
+        <div id="coin" style="--size:140px; transform: rotateX(0deg);"></div>
+      </div>
+    </div>
+
+    <div class="banner" id="banner"></div>
+    <button id="flipBtn" class="primary" disabled>Waiting for a friend...</button>
+  </section>
+
+</main>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+  const $ = (id) => document.getElementById(id);
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  let myId = null;
+  let angle = 0;          // coin's current X rotation (degrees)
+  let flipping = false;
+  let hasResult = false;  // a result banner is on screen
+  let state = null;
+
+  socket.on("connect", () => { myId = socket.id; });
+
+  // ---------- Build the 3D coin (faces + stacked edge layers for thickness) ----------
+  function buildCoin(el) {
+    el.classList.add("coin3d");
+    const N = 10;
+    for (let i = 0; i < N; i++) {
+      const e = document.createElement("div");
+      e.className = "edge";
+      e.style.transform = `translateZ(${-6 + (12 * i) / (N - 1)}px)`;
+      el.appendChild(e);
+    }
+    el.insertAdjacentHTML("beforeend",
+      '<div class="face heads"><div class="mark"><b>H</b><small>HEADS</small></div></div>' +
+      '<div class="face tails"><div class="mark"><b>T</b><small>TAILS</small></div></div>');
+  }
+  buildCoin($("homeCoin"));
+  buildCoin($("coin"));
+
+  // ---------- Home ----------
+  const homeError = (m) => ($("homeError").textContent = m || "");
+  const getName = () => $("nameInput").value.trim();
+
+  const pre = new URLSearchParams(location.search).get("room");
+  if (pre) $("codeInput").value = pre.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+
+  $("codeInput").oninput = (e) => {
+    e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  };
+  $("codeInput").onkeydown = (e) => { if (e.key === "Enter") $("joinBtn").click(); };
+
+  $("createBtn").onclick = () => {
+    if (!getName()) return homeError("Enter your name first.");
+    socket.emit("create_room", getName(), enterRoom);
+  };
+
+  $("joinBtn").onclick = () => {
+    const code = $("codeInput").value.trim();
+    if (!getName()) return homeError("Enter your name first.");
+    if (code.length < 4) return homeError("Enter the 4-character room code.");
+    socket.emit("join_room", { code, name: getName() }, (res) => {
+      if (!res.ok) return homeError(res.error);
+      enterRoom(res);
+    });
+  };
+
+  function enterRoom(res) {
+    homeError("");
+    $("home").classList.add("hidden");
+    $("room").classList.remove("hidden");
+    $("roomCode").textContent = res.state.code;
+    window.scrollTo(0, 0);
+    render(res.state);
+  }
+
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return true; } catch (e) { /* try fallback */ }
+    try {
+      const t = document.createElement("textarea");
+      t.value = text; t.style.position = "fixed"; t.style.opacity = "0";
+      document.body.appendChild(t); t.select();
+      const ok = document.execCommand("copy");
+      t.remove();
+      return ok;
+    } catch (e) { return false; }
+  }
+
+  function flash(btn, msg, original) {
+    btn.textContent = msg;
+    setTimeout(() => (btn.textContent = original), 1500);
+  }
+
+  $("copyBtn").onclick = async () => {
+    flash($("copyBtn"), (await copyText(state.code)) ? "Copied" : "Copy failed", "Copy code");
+  };
+
+  $("inviteBtn").onclick = async () => {
+    const url = `${location.origin}/?room=${state.code}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Coin Duel", text: `Join my coin duel. Room code: ${state.code}`, url });
+        return;
+      } catch (e) { if (e.name === "AbortError") return; }
+    }
+    flash($("inviteBtn"), (await copyText(url)) ? "Link copied" : "Copy failed", "Share link");
+  };
+
+  $("flipBtn").onclick = () => socket.emit("flip");
+
+  // ---------- Rendering ----------
+  function setBanner(big, small) {
+    const b = $("banner");
+    b.innerHTML = "";
+    if (big) { const d = document.createElement("div"); d.className = "big"; d.textContent = big; b.appendChild(d); }
+    if (small) { const d = document.createElement("div"); d.className = "small"; d.textContent = small; b.appendChild(d); }
+  }
+
+  function fillPlayer(el, p) {
+    el.classList.remove("win");
+    el.classList.toggle("empty", !p);
+    el.querySelector(".nm").textContent = p ? p.name + (p.id === myId ? " (you)" : "") : "Waiting...";
+    el.querySelector(".side").textContent = p ? (p.side === "heads" ? "Heads" : "Tails") : "";
+    el.querySelector(".score").textContent = p ? p.wins : "-";
+    el.querySelector(".lbl").textContent = p ? (p.wins === 1 ? "win" : "wins") : "";
+  }
+
+  function updateControls() {
+    const ready = state && state.players.length === 2;
+    const btn = $("flipBtn");
+    btn.disabled = !ready || flipping;
+    btn.textContent = flipping ? "Tossing..." : ready ? "Toss the coin" : "Waiting for a friend...";
+    if (!flipping && !hasResult) {
+      if (ready) setBanner("Both players are in", "Either of you can toss the coin.");
+      else setBanner("", "Send the room code to your friend.");
+    }
+  }
+
+  function render(s) {
+    state = s;
+    fillPlayer($("p1"), s.players[0]);
+    fillPlayer($("p2"), s.players[1]);
+    updateControls();
+  }
+
+  // ---------- The toss ----------
+  async function toss(result) {
+    const tosser = $("tosser"), coin = $("coin"), shadow = $("shadow"), stage = $("stage");
+    const from = angle;
+    const base = Math.ceil(angle / 360) * 360;
+    const target = base + 360 * 6 + (result === "tails" ? 180 : 0); // heads = multiple of 360
+    angle = target;
+
+    // How high can the coin go inside the stage?
+    const size = 140, restBottom = 56, peakScale = 1.3;
+    const rise = Math.max(90, stage.clientHeight - restBottom - size - (size * (peakScale - 1)) / 2 - 8);
+
+    tosser.classList.remove("idle");
+
+    const up = "cubic-bezier(.2,.75,.4,1)";     // fast launch, slows near the top
+    const down = "cubic-bezier(.6,0,.85,.4)";   // gravity pulls it back
+    const anims = [
+      tosser.animate([
+        { transform: "translateY(0) scale(1)", offset: 0, easing: up },
+        { transform: `translateY(${-rise}px) scale(${peakScale})`, offset: 0.42, easing: down },
+        { transform: "translateY(0) scale(1)", offset: 0.8, easing: up },
+        { transform: "translateY(-26px) scale(1.04)", offset: 0.88, easing: down },
+        { transform: "translateY(0) scale(1)", offset: 0.94, easing: up },
+        { transform: "translateY(-7px) scale(1.01)", offset: 0.97, easing: down },
+        { transform: "translateY(0) scale(1)", offset: 1 }
+      ], { duration: 3000 }),
+      coin.animate([
+        { transform: `rotateX(${from}deg)` },
+        { transform: `rotateX(${target}deg)` }
+      ], { duration: 2400, easing: "cubic-bezier(.3,.5,.3,1)", fill: "forwards" }),
+      shadow.animate([
+        { transform: "scaleX(1)", opacity: 0.55, offset: 0, easing: up },
+        { transform: "scaleX(.5)", opacity: 0.22, offset: 0.42, easing: down },
+        { transform: "scaleX(1)", opacity: 0.55, offset: 0.8 },
+        { transform: "scaleX(1)", opacity: 0.55, offset: 1 }
+      ], { duration: 3000 })
+    ];
+
+    try { await Promise.all(anims.map((a) => a.finished)); } catch (e) { /* cancelled */ }
+    coin.style.transform = `rotateX(${target}deg)`;
+    anims.forEach((a) => a.cancel());
+    tosser.classList.add("idle");
+  }
+
+  socket.on("flip_result", async ({ result, winnerId, winnerName, flipperName, state: s }) => {
+    flipping = true;
+    hasResult = false;
+    $("p1").classList.remove("win");
+    $("p2").classList.remove("win");
+    updateControls();
+    const who = flipperName || "Someone";
+    setBanner(`${who} tossed the coin`, "In the air...");
+
+    await toss(result);
+
+    flipping = false;
+    hasResult = true;
+    render(s);
+
+    const idx = s.players.findIndex((p) => p.id === winnerId);
+    const card = $(idx === 0 ? "p1" : "p2");
+    card.classList.add("win");
+    card.querySelector(".score").animate(
+      [{ transform: "scale(1.4)" }, { transform: "scale(1)" }],
+      { duration: 380, easing: "ease-out" }
+    );
+    setBanner(winnerId === myId ? "You win" : `${winnerName} wins`,
+              `It landed on ${result === "heads" ? "heads" : "tails"}.`);
+    if (navigator.vibrate) navigator.vibrate(60);
+  });
+
+  socket.on("room_state", (s) => {
+    // A new player joined (or someone left): start fresh banner-wise
+    if (!state || s.players.length !== state.players.length) hasResult = false;
+    if (flipping) { state = s; return; }
+    render(s);
+  });
+
+  socket.on("player_left", () => {
+    flipping = false;
+    hasResult = true;
+    setBanner("Your opponent left", "Share the room code to bring someone new in.");
+  });
+</script>
+</body>
+</html>
